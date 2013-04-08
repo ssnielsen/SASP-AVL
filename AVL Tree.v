@@ -113,3 +113,8 @@ Example propnonsorted :
 	sorted (1::1::0::[]).
 Proof. apply more. reflexivity. apply more. (*UNPOSSIBLE!!!*) Admitted.
 
+Example hejmor : 
+	sorted [5].
+Proof.
+	apply single.
+Qed.
