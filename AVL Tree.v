@@ -1,4 +1,5 @@
 Require Export SfLib.
+Require Import Coq.Numbers.Natural.Peano.NPeano.
 
 Inductive tree: Type :=
 	| leaf : tree
@@ -137,7 +138,8 @@ Proof. reflexivity. Qed.
 Inductive sorted : list nat -> Prop :=
 	| empty : sorted []
 	| single : forall n, sorted [n]
-	| more : forall n m xs, ble_nat n m = true -> sorted (m::xs) -> sorted (n::m::xs).
+	| more : forall n m xs, ble_nat n m = true -> sorted (m::xs) -> sorted (n::m::xs)
+	| evenmore :  forall y n m xs ys, ble_nat n m = true -> ble_nat y n = true -> sorted(ys++[y]) -> sorted (m::xs) -> sorted (ys++[y] ++ n::m::xs).
 	
 Example propsorted :
 	sorted (inorder Tree).
@@ -161,13 +163,88 @@ Proof.
 		admit.
 Qed.
 
-Theorem insert_preserves_bst: forall n t,
+Fixpoint contains elem l :=
+	match l with
+	| [] => false
+	| x::xs =>
+		match beq_nat elem x with
+		| true => true
+		| false => contains elem xs
+		end
+	end.
+
+Lemma app_sorted : forall l1 l2 e1 e2 xs1 xs2,
+	l1 = xs1 ++ [e1] -> l2 = e2::xs2 -> sorted l1 -> sorted l2 -> ble_nat e1 e2 = true -> sorted(l1++l2).
+Proof. Admitted.
+
+Lemma add_insures_contains : forall elem t,
+	 contains elem (inorder (add elem t)) = true.
+Proof. 
+	intros. induction t. 
+		simpl. rewrite <- beq_nat_refl. reflexivity. 
+		simpl. remember (ble_nat elem n) as guard. destruct guard.
+			simpl. admit. admit.
+Qed.
+
+Theorem cons_app : forall e (l: list nat),
+	[e]++l = e::l.
+Proof.
+	intros. simpl. reflexivity.
+Qed.
+
+Definition blt_nat n1 n2 :=
+	negb (ble_nat n2 n1).
+
+Definition bgt_nat n1 n2 :=
+	negb (ble_nat n1 n2).
+
+Lemma inorder_add : forall n t t' x' xs',
+	inorder t' = x'::xs' -> t' = add n t -> inorder (add n t) = x'::xs'.
+Proof.
+	intros. subst. apply H.
+Qed.
+
+Lemma add_not_leaf : forall n t,
+	add n t <> leaf.
+Proof.
+	intros. induction t.
+		unfold not. intros. simpl in H. inversion H.
+		unfold not. intros. admit.
+Qed.
+
+Lemma add_produces_nonempty_inorder : forall n t,
+	inorder (add n t) <> nil.
+Proof. intros. induction t. 
+	unfold not. intros. inversion H. 
+	unfold not. intros. unfold not in IHt1, IHt2. apply IHt1. admit.
+Qed.
+
+Lemma bst_node : forall t n leftChild rightChild xs lst,
+	t = node n leftChild rightChild -> sorted (inorder t) -> inorder leftChild = xs++[lst] -> ble_nat lst n = true.
+Proof.
+	intros. subst. admit.
+Qed.
+
+Theorem add_preserves_bst: forall n t,
 	sorted (inorder t) -> sorted (inorder (add n t)).
 Proof.
 	intros. induction t. 
 		Case "leaf". apply single.
-		Case "node". simpl in H. apply sorted_app in H. admit.
+		Case "node". simpl in H. apply sorted_app in H. inversion H. simpl. 
+			remember (ble_nat n n0) as add. destruct add. 
+				simpl. rewrite inorder_add with (t':=add n t1)(x':=batman)(xs':=alfred). remember (add n t1) as addnt1. destruct addnt1. 
+					inversion Heqaddnt1. rewrite inorder_add with (n:=n)(t:=t1)(t':=add n t1). apply app_sorted.
+					apply add_insures_contains. reflexivity. apply IHt1. apply H0. apply H1. symmetry. apply Heqadd. 
+				simpl. apply app_sorted2 with (e1:=n0)(e2:=n)(xs2:=inorder (add n t2)). 
+					simpl. remember (beq_nat n n0) as beqnat. destruct beqnat. 
+						reflexivity. 
+						apply add_insures_contains. reflexivity. apply H0. rewrite <- cons_app. apply spec_split_inorder_add_sort.
+							apply single. apply IHt2. rewrite <- cons_app in H1. apply sorted_app in H1. inversion H1. apply H3.
+							unfold blt_nat. rewrite <- Heqadd. reflexivity. 
 Qed.
+
+Lemma nonEmpty : forall t,
+	inorder (add n t) -> 
 
 Fixpoint pow base exponent :=
 	match exponent with
@@ -179,15 +256,16 @@ Example powcheck :
 	pow 5 2 = 25.
 Proof. reflexivity. Qed.
 
-Fixpoint log n c :=
-	match andb (ble_nat (pow 2 c) n) (negb (beq_nat (pow 2 c) n)) with
-	| false => c
-	| true => log n (c+1)
+
+
+Fixpoint log2iter n exponent product :=
+	match blt_nat product n with
+	| true => log2iter n (exponent+1) (2*product)
+	| false => exponent
 	end.
-	
-Example log :
-	5*3 = 15.
-Proof. compute. reflexivity. Qed.
+
+Definition log2 n :=
+	log2iter n 0 1 0.
 
 Theorem insert_preserves_balance: forall n t t',
 	t = insert n t' -> height t = log2 (length (inorder t')+1).
