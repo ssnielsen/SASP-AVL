@@ -138,8 +138,7 @@ Proof. reflexivity. Qed.
 Inductive sorted : list nat -> Prop :=
 	| empty : sorted []
 	| single : forall n, sorted [n]
-	| more : forall n m xs, ble_nat n m = true -> sorted (m::xs) -> sorted (n::m::xs)
-	| evenmore :  forall y n m xs ys, ble_nat n m = true -> ble_nat y n = true -> sorted(ys++[y]) -> sorted (m::xs) -> sorted (ys++[y] ++ n::m::xs).
+	| more : forall n m xs, ble_nat n m = true -> sorted (m::xs) -> sorted (n::m::xs).
 	
 Example propsorted :
 	sorted (inorder Tree).
@@ -153,14 +152,47 @@ Example balanced_tree :
 	insert 5 (insert 2 (insert 10 (insert 1 leaf))) = node 2 (node 1 leaf leaf) (node 10 (node 5 leaf leaf) leaf).
 Proof. reflexivity. Qed.
 
+Lemma empty_app : forall (l1: list nat) (l2 : list nat),
+	 [] = l1 ++ l2 -> l1 = [] /\ l2 = [].
+Proof.
+	intros. admit.
+Qed.
+
+Lemma cons_sorted : forall n l,
+	sorted (n::l) -> sorted l.
+Proof. 
+	intros. inversion H. 
+		apply empty. 
+		subst. apply H3.
+Qed.
+
+Lemma concat_app_sorted : forall n l1 l2,
+	sorted (n :: l1 ++ l2) -> sorted (n::l1).
+Proof.
+	intros. inversion H. 
+		subst. apply empty_app in H2. inversion H2. rewrite H0. apply single. 
+		subst. destruct l1.
+			apply single.
+			inversion H. subst.
+			apply more. apply H5. simpl in *.  
+Qed.
+
+Lemma concat_app_sorted' : forall n l1 l2,
+	sorted (l1 ++ n::l2) -> sorted (n::l2).
+Proof.
+	intros. admit.
+Qed.
+
 Lemma sorted_app: forall l1 l2,
 	sorted(l1++l2) -> sorted l1 /\ sorted l2.
 Proof. 
-	intros. split. 
+	intros. split.  
 		destruct l1. 
 			apply empty.
-			simpl in H. admit.
-		admit.
+			simpl in H. apply concat_app_sorted in H. apply H.
+		destruct l2.
+			apply empty.
+			apply concat_app_sorted' in H. apply H. 
 Qed.
 
 Fixpoint contains elem l :=
@@ -204,27 +236,78 @@ Proof.
 	intros. subst. apply H.
 Qed.
 
-Lemma add_not_leaf : forall n t,
-	add n t <> leaf.
+Fixpoint valid_bst t :=
+	match t with
+	| leaf => true
+	| node val lChild rChild => 
+		match lChild with
+		| leaf => match rChild with
+			| leaf => true
+			| node rVal rlChild rrChild => andb (andb (bgt_nat rVal val) (valid_bst rlChild)) (valid_bst rrChild)
+			end
+		| node lVal llChild lrChild => match rChild with
+			| leaf => andb (andb (ble_nat lVal val) (valid_bst llChild)) (valid_bst lrChild)
+			| node rVal rlChild rrChild => 
+				andb (andb (andb (ble_nat lVal val) (bgt_nat rVal val))  
+				(andb (valid_bst llChild) (valid_bst lrChild)))
+				(andb (valid_bst rlChild) (valid_bst rrChild))
+			end
+		end
+	end.
+
+Inductive bst : tree -> Prop :=
+	| bst_leaf : bst leaf
+	| bst_node : forall val rVal lVal llT lrT rlT rrT, 
+		ble_nat lVal val = true -> bgt_nat rVal val = true -> bst (node lVal llT lrT) -> 
+		bst (node rVal lrT rrT) -> bst (node val (node lVal llT lrT) (node rVal rlT rrT))
+	| bst_node_leaf : forall val lVal llT lrT, 
+		ble_nat lVal val = true -> bst (node lVal llT lrT) -> 
+		bst (node val (node lVal llT lrT) leaf)
+	| bst_leaf_node : forall val rVal rlT rrT, 
+		bgt_nat rVal val = true -> bst (node rVal rlT rrT) -> 
+		bst (node val leaf (node rVal rlT rrT))
+	| bst_leaf_leaf : forall val, bst (node val leaf leaf).
+
+Definition BigTree :=
+	 node 6 (Tree) (node 10 leaf leaf).
+
+Definition not_bst :=
+	node 5 (node 6 leaf leaf) leaf.
+
+Example big_tree_prop_example :
+	bst BigTree.
+Proof. unfold BigTree. apply bst_node; try repeat reflexivity; try repeat constructor. Qed.
+
+Example not_bst_prop_example:
+	bst not_bst.
+Proof. unfold not_bst. apply bst_node_leaf. Admitted. (*UNPOSSIBLE*)
+
+Example big_tree_example :
+	valid_bst BigTree = true.
+Proof. reflexivity. Qed.
+
+Example not_bst_example :
+	valid_bst not_bst = false.
+Proof. reflexivity. Qed.
+
+Definition BigTree2 :=
+	node 5 leaf BigTree.
+	
+Example big_tree_2_example:
+	valid_bst BigTree2 = true.
+Proof. reflexivity. Qed.
+
+Lemma add_preserves_bst : forall n t,
+	bst t -> bst (add n t).
 Proof.
 	intros. induction t.
-		unfold not. intros. simpl in H. inversion H.
-		unfold not. intros. admit.
+		constructor.
+		simpl. remember (ble_nat n n0) as b. destruct b.
+			admit. admit.
 Qed.
 
-Lemma add_produces_nonempty_inorder : forall n t,
-	inorder (add n t) <> nil.
-Proof. intros. induction t. 
-	unfold not. intros. inversion H. 
-	unfold not. intros. unfold not in IHt1, IHt2. apply IHt1. admit.
-Qed.
 
-Lemma bst_node : forall t n leftChild rightChild xs lst,
-	t = node n leftChild rightChild -> sorted (inorder t) -> inorder leftChild = xs++[lst] -> ble_nat lst n = true.
-Proof.
-	intros. subst. admit.
-Qed.
-
+(*
 Theorem add_preserves_bst: forall n t,
 	sorted (inorder t) -> sorted (inorder (add n t)).
 Proof.
@@ -242,38 +325,17 @@ Proof.
 							apply single. apply IHt2. rewrite <- cons_app in H1. apply sorted_app in H1. inversion H1. apply H3.
 							unfold blt_nat. rewrite <- Heqadd. reflexivity. 
 Qed.
-
-Lemma nonEmpty : forall t,
-	inorder (add n t) -> 
-
-Fixpoint pow base exponent :=
-	match exponent with
-	| 0 => 1
-	| S n => base * (pow base (n))
-	end.
-
-Example powcheck :
-	pow 5 2 = 25.
-Proof. reflexivity. Qed.
-
-
-
-Fixpoint log2iter n exponent product :=
-	match blt_nat product n with
-	| true => log2iter n (exponent+1) (2*product)
-	| false => exponent
-	end.
-
-Definition log2 n :=
-	log2iter n 0 1 0.
+*)
 
 Theorem insert_preserves_balance: forall n t t',
-	t = insert n t' -> height t = log2 (length (inorder t')+1).
+	t = insert n t' -> ble_nat (height t) (log2 (length (inorder t') + 1)+1) = true.
 Proof. 
 	intros. induction t'.
-		Case "leaf". rewrite H. simpl. compute. reflexivity.
-		Case "node". rewrite H. simpl. destruct t'1. destruct t'2. simpl. compute.
-		
+		Case "leaf". rewrite H. reflexivity.
+		Case "node". simpl in *. rewrite H. destruct t'1. destruct t'2. simpl. admit. simpl.
+
+Qed.		
+
 Example justasmalltowngirl :
 	2+2=4.
 Proof. reflexivity. Qed.
