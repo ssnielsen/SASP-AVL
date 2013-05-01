@@ -173,12 +173,49 @@ Proof.
 		apply H.
 Qed.
 
-Lemma sorted_property : forall l1 l2 e,
-	sorted (l1++e::l2) -> last l1 <= first (e::l2).
+Lemma last_cons : forall a l1 l2 x xs,
+	l1 = x::xs -> last l1 <= first l2 -> a <= first l1 -> last(a::l1) <= first l2.
+Proof.
+	intros. induction l2.
+		simpl in H, H0. destruct l1.
+			inversion H1. simpl. omega.
+			simpl in H1. inversion H0. auto. 
+		destruct l1.
+			inversion H1. simpl in *. omega. 
+			apply H0.
+Qed.
+
+Lemma sorted_property : forall l1 l2,
+	l2 <> nil -> sorted (l1++l2) -> last l1 <= first l2.
 Proof.
 	intros. induction l1.
 		simpl. omega.
-		simpl in H, IHl1. 
+		simpl in H0. unfold not in H. replace (last(a::l1)) with (last l1). apply IHl1.  apply cons_sorted in H0. apply H0. admit.
+Qed.
+
+Lemma list_property : forall x y l,
+	sorted(x::y::l) -> x <= y.
+Proof.
+	intros. inversion H. subst. apply H2. 
+Qed.
+
+Lemma cons_sorted_rev : forall l n,
+	sorted(l++[n]) -> sorted l.
+Proof.
+	intros. induction l.
+		apply empty.
+		simpl in *. replace (a::l) with ([a]++l). 
+			apply app_sorted. simpl. admit. apply single. apply IHl. apply cons_sorted in H. apply H. 
+			reflexivity.
+Qed.
+
+Lemma concat'_app_sorted : forall n a l1,
+	sorted (n :: l1 ++ [a]) -> sorted (n :: l1).
+Proof.
+	intros. induction l1.
+		apply single.
+		apply more. simpl in H. apply cons_sorted_rev with (l:=n::a0::l1)(n:=a) in H. apply list_property in H. apply H.
+		simpl in H. apply cons_sorted_rev with (l:=n::a0::l1)(n:=a) in H. apply cons_sorted in H. apply H. 
 Qed.
 
 Lemma concat_app_sorted : forall n l1 l2,
@@ -186,8 +223,8 @@ Lemma concat_app_sorted : forall n l1 l2,
 Proof.
 	intros. generalize dependent l1. induction l2. 
 		intros. rewrite app_nil_r in H. apply H. 
-		intros. assert (sorted (n::l1 ++ [a])). apply IHl2. rewrite <- app_assoc. apply H. inversion H. 
-			subst. admit. admit.
+		intros. assert (sorted (n::l1 ++ [a])). apply IHl2. rewrite <- app_assoc. apply H. 
+		apply concat'_app_sorted in H0. apply H0. 
 Qed.
 
 Lemma concat_app_sorted' : forall n l1 l2,
@@ -200,17 +237,17 @@ Qed.
 
 
 Lemma sorted_app: forall l1 l2,
-	sorted(l1++l2) -> sorted l1 /\ sorted l2 /\ last l1 <= first l2.
+	l2 <> [] -> sorted(l1++l2) -> sorted l1 /\ sorted l2 /\ last l1 <= first l2.
 Proof. 
 	intros. split.  
 		destruct l1. 
 			apply empty.
-			simpl in H. apply concat_app_sorted in H. apply H.
+			simpl in H. apply concat_app_sorted in H0. apply H0.
 		split.
 			destruct l2.
 				apply empty.
-				apply concat_app_sorted' in H. apply H.  
-			apply sorted_property in H. apply H.
+				apply concat_app_sorted' in H0. apply H0.  
+			apply sorted_property in H0. apply H0. apply H.
 Qed.
 
 Lemma last_app : forall l n,
@@ -219,7 +256,7 @@ Proof.
 	intros. simpl. induction l. 
 		reflexivity.
 		simpl in *. rewrite IHl. remember (l++[n]) as obviouslynonemptylist. destruct obviouslynonemptylist.
-			admit.
+			subst. simpl in *. destruct l. inversion Heqobviouslynonemptylist. inversion Heqobviouslynonemptylist. 
 			reflexivity.
 Qed.
 
@@ -250,8 +287,8 @@ Proof.
 		Case "node". simpl in H. apply sorted_app in H. inversion H. inversion H1. simpl. 
 			remember (ble_nat n n0) as add. destruct add. 
 				simpl. apply app_sorted; simpl; try apply last_first_sorted; try assumption. apply IHt1. assumption. 
-				simpl. apply app_sorted. simpl in *. apply H3. assumption. apply cons_sorted with (n:=n0). apply first_last_sorted; try assumption. 
-				symmetry in Heqadd. apply ble_nat_false in Heqadd. apply Heqadd. 
+				simpl. apply app_sorted. simpl in *. apply H3. assumption. apply first_last_sorted; try assumption. 
+				symmetry in Heqadd. apply ble_nat_false in Heqadd. apply Heqadd. unfold not. intros. inversion H0. 
 Qed.
 
 Theorem insert_preserves_bst : forall n t,
