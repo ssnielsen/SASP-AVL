@@ -173,20 +173,21 @@ Proof.
 		apply H.
 Qed.
 
-Lemma sorted_property : forall l1 l2,
-	sorted (l1++l2) -> last l1 <= first l2.
+Lemma sorted_property : forall l1 l2 e,
+	sorted (l1++e::l2) -> last l1 <= first (e::l2).
 Proof.
 	intros. induction l1.
 		simpl. omega.
-		admit.
+		simpl in H, IHl1. 
 Qed.
 
 Lemma concat_app_sorted : forall n l1 l2,
 	sorted (n :: l1 ++ l2) -> sorted (n::l1).
 Proof.
-	intros. induction l2. 
-		rewrite app_nil_r in H. apply H. 
-		apply IHl2. admit.
+	intros. generalize dependent l1. induction l2. 
+		intros. rewrite app_nil_r in H. apply H. 
+		intros. assert (sorted (n::l1 ++ [a])). apply IHl2. rewrite <- app_assoc. apply H. inversion H. 
+			subst. admit. admit.
 Qed.
 
 Lemma concat_app_sorted' : forall n l1 l2,
@@ -194,7 +195,7 @@ Lemma concat_app_sorted' : forall n l1 l2,
 Proof.
 	intros. induction l1. 
 		simpl in H.  apply H. 
-		apply IHl1. simpl in H. apply cons_sorted in H. apply H. 		
+		apply IHl1. simpl in H. apply cons_sorted in H. apply H. 
 Qed.
 
 
@@ -228,8 +229,8 @@ Proof.
 	intros. induction t. 
 		simpl. symmetry in H. apply ble_nat_true in H. apply H. 
 		simpl. remember (ble_nat n n0) as add. destruct add.
-			admit.
-			admit.
+			simpl in *. admit.
+			simpl in *. admit.
 Qed.
 
 Lemma first_last_sorted: forall n m t,
@@ -249,7 +250,7 @@ Proof.
 		Case "node". simpl in H. apply sorted_app in H. inversion H. inversion H1. simpl. 
 			remember (ble_nat n n0) as add. destruct add. 
 				simpl. apply app_sorted; simpl; try apply last_first_sorted; try assumption. apply IHt1. assumption. 
-				simpl. apply app_sorted. simpl in *. apply H3. assumption. apply first_last_sorted; try assumption. 
+				simpl. apply app_sorted. simpl in *. apply H3. assumption. apply cons_sorted with (n:=n0). apply first_last_sorted; try assumption. 
 				symmetry in Heqadd. apply ble_nat_false in Heqadd. apply Heqadd. 
 Qed.
 
