@@ -185,18 +185,25 @@ Proof.
 			apply H0.
 Qed.
 
+Lemma list_property : forall x y l,
+	sorted(x::y::l) -> x <= y.
+Proof.
+	intros. inversion H. subst. apply H2. 
+Qed.
+
 Lemma sorted_property : forall l1 l2,
 	l2 <> nil -> sorted (l1++l2) -> last l1 <= first l2.
 Proof.
 	intros. induction l1.
 		simpl. omega.
-		simpl in H0. unfold not in H. replace (last(a::l1)) with (last l1). apply IHl1.  apply cons_sorted in H0. apply H0. admit.
-Qed.
-
-Lemma list_property : forall x y l,
-	sorted(x::y::l) -> x <= y.
-Proof.
-	intros. inversion H. subst. apply H2. 
+		simpl in H0. unfold not in H. destruct l2.
+			apply ex_falso_quodlibet. apply H. reflexivity.
+			simpl in IHl1. destruct l1.
+				simpl in *. apply list_property in H0. apply H0.
+				simpl in H0. apply last_cons with (x:=n0)(xs:=l1). 
+					reflexivity. 
+					apply IHl1. simpl in *. apply cons_sorted in H0. apply H0. 
+					apply list_property in H0. apply H0.
 Qed.
 
 Lemma cons_sorted_rev : forall l n,
@@ -205,7 +212,20 @@ Proof.
 	intros. induction l.
 		apply empty.
 		simpl in *. replace (a::l) with ([a]++l). 
-			apply app_sorted. simpl. admit. apply single. apply IHl. apply cons_sorted in H. apply H. 
+			apply app_sorted. simpl. destruct l.
+				induction a.
+					omega.
+					apply list_property in H.
+						induction n.
+							apply H.
+							apply IHn.
+							simpl in *.
+							admit. (* IHn is nonsensical*)
+							intros. apply empty.
+							intros. apply IHa.
+							simpl in *. inversion H0. subst. assert (a <= S n -> sorted [a, S n]). intros. apply more. apply H1. apply single.  apply H1. omega. 
+							apply list_property in H. apply H.
+						apply single. apply IHl. apply cons_sorted in H. apply H. 
 			reflexivity.
 Qed.
 
@@ -260,14 +280,54 @@ Proof.
 			reflexivity.
 Qed.
 
+Lemma last_cons_nonempty : forall e l,
+	l <> [] -> last (e::l) = last l.
+Proof.
+	intros. induction l.
+		apply ex_falso_quodlibet. apply H. reflexivity.
+		destruct l.
+			reflexivity.
+			simpl. reflexivity.
+Qed.
+
+Lemma last_app_l : forall l1 l2 e,
+	last (l1++e::l2) = last (e::l2).
+Proof.
+	intros. induction l1. 
+		reflexivity. 
+		destruct l1. 
+			reflexivity. 
+			simpl. remember (l1 ++ e::l2) as nonemptylist. destruct nonemptylist.
+				destruct l1. inversion Heqnonemptylist. inversion Heqnonemptylist.
+				rewrite Heqnonemptylist. replace ((n::l1)++e::l2) with (n::l1++e::l2) in IHl1. 
+				rewrite last_cons_nonempty with (e:=n)(l:=l1++e::l2) in IHl1. 
+				replace (match l2 with | [] => e | _::_ => last l2 end) with (last (e::l2)). rewrite <- IHl1. reflexivity.
+				simpl. reflexivity.
+				unfold not. intros. destruct l1. inversion H. inversion H.
+				reflexivity.
+Qed.
+
+Lemma last_lt : forall t e n,
+	last (e::inorder t) <= n -> last (inorder t) <= n.
+Proof.
+	intros. induction t.
+		simpl. omega.
+		remember (inorder (node n0 t1 t2)) as list. destruct list.
+			simpl. omega.
+			rewrite last_cons_nonempty in H. apply H. unfold not. intros. inversion H0.
+Qed.
+
 Lemma last_first_sorted : forall n m t,
 	true = ble_nat n m -> last (inorder t) <= m -> last (inorder (add n t)) <= m.
 Proof.
 	intros. induction t. 
 		simpl. symmetry in H. apply ble_nat_true in H. apply H. 
 		simpl. remember (ble_nat n n0) as add. destruct add.
-			simpl in *. admit.
-			simpl in *. admit.
+			simpl in *. rewrite last_app_l in *. apply H0. 
+			simpl in *. rewrite last_app_l in *. rewrite last_cons_nonempty. apply IHt2. apply last_lt in H0. apply H0. 
+			remember (inorder (add n t2)) as nonemptylist. destruct nonemptylist.
+				admit.
+				unfold not. intros. inversion H1.
 Qed.
 
 Lemma first_last_sorted: forall n m t,
@@ -370,23 +430,4 @@ Proof.
 		Case "leaf". rewrite H. reflexivity.
 		Case "node". simpl in *. rewrite H. destruct t'1. destruct t'2. simpl. admit. simpl.
 
-Qed.	
-
-Lemma cons_app_sorted : forall n l1 l2,
-	sorted (n :: l1 ++ l2) -> sorted (n :: l1).
-Proof.
-	intros. inversion H. 
-		subst. apply empty_app in H2. inversion H2. rewrite H0. apply single. 
-		subst. induction l1.
-			apply single.
-			simpl in *. apply more. apply first_is_first in H1. rewrite <- H1. apply H2.
-			admit.
 Qed.
-
-Lemma cons_app_sorted' : forall n l1 l2,
-	sorted (l1 ++ n::l2) -> sorted (n::l2).
-Proof.
-	intros. induction l2.
-		apply single.
-		apply more.  admit. admit.
-Qed.	
