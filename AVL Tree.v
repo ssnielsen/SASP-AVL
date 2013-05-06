@@ -151,6 +151,15 @@ Proof.
 		subst. apply H3.
 Qed.
 
+Lemma cons_sorted_simpl : forall n l,
+	n <= first l -> sorted l -> sorted(n::l).
+Proof.
+	intros. remember (n::l). induction H0.
+	subst. apply single.
+	subst. apply more. apply H. apply single.
+	subst. apply more. apply H. apply more. apply H0. apply H1.
+Qed.
+
 Lemma first_is_first : forall (m: nat) a xs xs',
 	m::xs = a::xs' -> m = a.
 Proof.
@@ -204,6 +213,22 @@ Proof.
 					reflexivity. 
 					apply IHl1. simpl in *. apply cons_sorted in H0. apply H0. 
 					apply list_property in H0. apply H0.
+Qed.
+
+Lemma sorted_app_1 : forall l1 l2,
+	sorted (l1++l2) -> sorted (l1).
+Proof.
+	 intros. remember (l1++l2). generalize dependent l1. induction H. 
+	 	intros. apply empty_app in Heql. inversion Heql. rewrite H. apply empty.
+	 	destruct l1.
+	 		intros. apply empty.
+	 		intros. simpl in Heql. inversion Heql. rewrite <- H0. apply empty_app in H1. inversion H1. rewrite H. apply single.
+	 	intros.
+	 	destruct l1. 
+	 		apply empty.
+	 		simpl in Heql. inversion Heql. subst. destruct l1.
+	 			apply single.
+	 			apply more. inversion H3. rewrite <- H2. assumption. apply IHsorted. assumption.
 Qed.
 
 Lemma cons_sorted_rev : forall l n,
@@ -315,6 +340,16 @@ Proof.
 		remember (inorder (node n0 t1 t2)) as list. destruct list.
 			simpl. omega.
 			rewrite last_cons_nonempty in H. apply H. unfold not. intros. inversion H0.
+Qed.
+
+Lemma inorder_add_nonempty : forall n t,
+	inorder (add n t) <> [].
+Proof.
+	intros. induction t. 
+		simpl. unfold not. intros. inversion H.
+		simpl. remember (ble_nat n n0). destruct b. 
+			simpl. unfold not. intros. admit.
+			simpl. unfold not. intros. inversion H.
 Qed.
 
 Lemma last_first_sorted : forall n m t,
