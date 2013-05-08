@@ -234,24 +234,15 @@ Qed.
 Lemma cons_sorted_rev : forall l n,
 	sorted(l++[n]) -> sorted l.
 Proof.
-	intros. induction l.
+	intros. inversion H. destruct l. inversion H1. inversion H1. destruct l. 
 		apply empty.
-		simpl in *. replace (a::l) with ([a]++l). 
-			apply app_sorted. simpl. destruct l.
-				induction a.
-					omega.
-					apply list_property in H.
-						induction n.
-							apply H.
-							apply IHn.
-							simpl in *.
-							admit. (* IHn is nonsensical*)
-							intros. apply empty.
-							intros. apply IHa.
-							simpl in *. inversion H0. subst. assert (a <= S n -> sorted [a, S n]). intros. apply more. apply H1. apply single.  apply H1. omega. 
-							apply list_property in H. apply H.
-						apply single. apply IHl. apply cons_sorted in H. apply H. 
-			reflexivity.
+		inversion H1. destruct l. inversion H3. inversion H3. destruct l.
+			apply empty.
+			inversion H0. subst. destruct l.
+				apply single. 
+				apply more. simpl in H. apply list_property in H. 
+				apply H. simpl in H. apply sorted_app_1 with (l1:=n1::n0::l)(l2:=[n]) in H. 
+				apply cons_sorted in H. apply H.
 Qed.
 
 Lemma concat'_app_sorted : forall n a l1,
@@ -348,8 +339,8 @@ Proof.
 	intros. induction t. 
 		simpl. unfold not. intros. inversion H.
 		simpl. remember (ble_nat n n0). destruct b. 
-			simpl. unfold not. intros. admit.
-			simpl. unfold not. intros. inversion H.
+			simpl. unfold not. intros. remember (inorder (add n t1)). destruct l. inversion H. inversion H. 
+			simpl. unfold not. intros. remember (inorder t1). destruct l. inversion H. inversion H.
 Qed.
 
 Lemma last_first_sorted : forall n m t,
@@ -359,19 +350,17 @@ Proof.
 		simpl. symmetry in H. apply ble_nat_true in H. apply H. 
 		simpl. remember (ble_nat n n0) as add. destruct add.
 			simpl in *. rewrite last_app_l in *. apply H0. 
-			simpl in *. rewrite last_app_l in *. rewrite last_cons_nonempty. apply IHt2. apply last_lt in H0. apply H0. 
-			remember (inorder (add n t2)) as nonemptylist. destruct nonemptylist.
-				admit.
-				unfold not. intros. inversion H1.
+			simpl in *. rewrite last_app_l in *. rewrite last_cons_nonempty. 
+			apply IHt2. apply last_lt in H0. apply H0. apply inorder_add_nonempty. 
 Qed.
 
-Lemma first_last_sorted: forall n m t,
-	~n <= m -> sorted (m::inorder t) -> sorted(m::inorder(add n t)).
+Lemma sorted_last: forall val leftChild rightChild,
+	sorted (inorder (node val leftChild rightChild)) -> last (inorder leftChild ++ val::inorder rightChild) = last (val::inorder rightChild).
 Proof.
-	intros. induction t. 
-		simpl. apply more. omega. apply single. 
-		simpl. remember (ble_nat n n0) as add. destruct add. 
-			simpl. admit. admit. 
+	intros. inversion H. remember (inorder leftChild). destruct l. inversion H1. inversion H1.
+	remember (inorder leftChild). destruct l. inversion H1. reflexivity. inversion H1. destruct l. inversion H3. inversion H3.
+	remember (inorder leftChild). destruct l. rewrite H0. simpl. reflexivity. remember (inorder rightChild). destruct l0. rewrite H0. 
+	rewrite last_app_l. reflexivity. rewrite H0. rewrite last_app_l. reflexivity.
 Qed.
 
 Theorem add_preserves_bst': forall n t,
@@ -382,8 +371,9 @@ Proof.
 		Case "node". simpl in H. apply sorted_app in H. inversion H. inversion H1. simpl. 
 			remember (ble_nat n n0) as add. destruct add. 
 				simpl. apply app_sorted; simpl; try apply last_first_sorted; try assumption. apply IHt1. assumption. 
-				simpl. apply app_sorted. simpl in *. apply H3. assumption. apply first_last_sorted; try assumption. 
-				symmetry in Heqadd. apply ble_nat_false in Heqadd. apply Heqadd. unfold not. intros. inversion H0. 
+				simpl. apply app_sorted. simpl in *. apply H3. assumption. 
+				apply cons_sorted_simpl. admit. 
+				apply IHt2. apply cons_sorted in H2. apply H2. congruence. 
 Qed.
 
 Theorem insert_preserves_bst : forall n t,
@@ -399,12 +389,26 @@ Proof.
 					destruct t2_1.
 						apply empty.
 						simpl. apply app_sorted. simpl in *. destruct t2_1_1.
-							subst. simpl in *. admit. simpl. admit.
-							apply app_sorted. admit.
+							subst. simpl in *. rewrite last_app. simpl. apply list_property in H2. apply H2. 
+							simpl. rewrite last_app_l. 
+							replace (n0 :: inorder t2_1_1_1 ++ n3 :: inorder t2_1_1_2) with ((n0 :: inorder t2_1_1_1) ++ n3 :: inorder t2_1_1_2).
+							rewrite last_app_l with (l1:=n0::inorder t2_1_1_1). 
+							apply cons_sorted in H2.
+							apply sorted_app in H2. inversion H2. subst. apply sorted_app in H4. inversion H4.
+							apply sorted_last in H6. inversion H7. simpl in H9. rewrite <- H6. apply H9. congruence. congruence. reflexivity.
+							apply app_sorted. simpl. admit.
 							apply add_preserves_bst'. assumption.
-							admit. admit. 
+							simpl in H2.
+							replace (n0 :: (inorder t2_1_1 ++ n2 :: inorder t2_1_2) ++ n1 :: inorder t2_2) with (n0 :: inorder t2_1_1 ++ n2 :: inorder t2_1_2 ++ n1 :: inorder t2_2) in H2.
+							apply sorted_app with (l1:=n0::inorder t2_1_1) in H2. inversion H2. apply H4. congruence. 
+							rewrite <- app_assoc. reflexivity. 
+							simpl in H2. apply cons_sorted in H2. rewrite <- app_assoc in H2. apply sorted_app in H2. inversion H2.
+							inversion H5. apply H6. simpl. congruence.
 							destruct height2.
-								simpl. admit.
+								simpl. apply app_sorted. simpl. rewrite last_app_l. simpl in H2. apply sorted_app with (l1:=n0::inorder t2_1) in H2. 
+								inversion H2. inversion H5. apply H7. congruence. 
+								admit. simpl in H2. apply sorted_app with (l1:=n0::inorder t2_1)(l2:=n1::inorder t2_2) in H2. inversion H2.
+								inversion H5. apply H6. congruence.
 								destruct t2_1. 
 									apply empty. 
 									simpl. admit. 
@@ -454,8 +458,7 @@ Proof.
 																								simpl. admit.
 																							simpl. admit.
 																						simpl. admit.
-			
-				
+				congruence.	
 Qed.
 
 Theorem insert_preserves_balance: forall n t t',
