@@ -389,6 +389,48 @@ Proof.
 				congruence. destruct (inorder t1_1). simpl. congruence. simpl. congruence.
 Qed.
 
+Lemma last_cons_le : forall n m l,
+	last (n::l) <= m -> last l <= m.
+Proof.
+	intros. induction l.
+		simpl. omega.
+		simpl in *. apply H. 
+Qed.
+
+Lemma bad_matching_is_bad : forall e1 (e2:nat) l1 (l2: list nat),
+	l2 <> [] -> 
+	match l1++l2 with 
+				| [] => e1 
+				| _::_ => e2 
+				end  = e2.
+Proof.
+	intros. destruct l1.
+		destruct l2.
+			congruence.
+			reflexivity.
+		reflexivity.
+Qed.
+
+Lemma last_inorder : forall n m x t,
+	 last (inorder (add n t)) <= m -> last (x :: inorder t) <= m -> last (x :: inorder (add n t)) <= m.
+Proof.
+	intros. induction t.
+		simpl in *. apply H. 
+		simpl in *. remember (ble_nat n n0). destruct b; 
+			simpl in *; rewrite bad_matching_is_bad in *; rewrite last_app_l in *; try assumption; congruence.
+Qed.
+
+Lemma last_add : forall n m t,
+	n <= m -> last (inorder t) <= m -> last (inorder (add n t)) <= m.
+Proof.
+	intros. induction t.
+		assumption.
+		simpl. remember (ble_nat n n0). destruct b.
+			simpl in *. rewrite last_app_l. rewrite last_app_l in H0. assumption.
+			simpl in *. rewrite last_app_l. rewrite last_app_l in H0. apply last_inorder. apply IHt2. apply last_cons_le in H0. apply H0. apply H0.
+Qed.
+
+
 Theorem add_preserves_bst': forall n t,
 	sorted (inorder t) -> sorted (inorder (add n t)).
 Proof.
@@ -406,85 +448,139 @@ Theorem insert_preserves_bst : forall n t,
 	sorted (inorder t) -> sorted (inorder (insert n t)).
 Proof.
 	intros. induction t. 
-		simpl. apply single.
-		simpl in H. apply sorted_app in H. inversion H. inversion H1. unfold insert. simpl in *. remember (ble_nat n n0) as add. 
-		destruct add. simpl. remember (height (add n t1) + 2 - height t2) as height1. destruct height1.
-			destruct t2. 
-				simpl. apply empty.
-				remember (height t2_1 + 2 - height t2_2) as height2. destruct height2.
-					destruct t2_1.
-						apply empty.
-						simpl. apply app_sorted. simpl in *. destruct t2_1_1.
-							subst. simpl in *. rewrite last_app. simpl. apply list_property in H2. apply H2. 
-							simpl. rewrite last_app_l. 
-							replace (n0 :: inorder t2_1_1_1 ++ n3 :: inorder t2_1_1_2) with ((n0 :: inorder t2_1_1_1) ++ n3 :: inorder t2_1_1_2).
-							rewrite last_app_l with (l1:=n0::inorder t2_1_1_1). 
-							apply cons_sorted in H2.
-							apply sorted_app in H2. inversion H2. subst. apply sorted_app in H4. inversion H4.
-							apply sorted_last in H6. inversion H7. simpl in H9. rewrite <- H6. apply H9. congruence. congruence. reflexivity.
-							apply app_sorted. simpl. admit.
-							apply add_preserves_bst'. assumption.
-							simpl in H2.
-							replace (n0 :: (inorder t2_1_1 ++ n2 :: inorder t2_1_2) ++ n1 :: inorder t2_2) with (n0 :: inorder t2_1_1 ++ n2 :: inorder t2_1_2 ++ n1 :: inorder t2_2) in H2.
-							apply sorted_app with (l1:=n0::inorder t2_1_1) in H2. inversion H2. apply H4. congruence. 
-							rewrite <- app_assoc. reflexivity. 
-							simpl in H2. apply cons_sorted in H2. rewrite <- app_assoc in H2. apply sorted_app in H2. inversion H2.
-							inversion H5. apply H6. simpl. congruence.
-							destruct height2.
-								simpl. apply app_sorted. simpl. rewrite last_app_l. simpl in H2. apply sorted_app with (l1:=n0::inorder t2_1) in H2. 
-								inversion H2. inversion H5. apply H7. congruence. 
-								admit. simpl in H2. apply sorted_app with (l1:=n0::inorder t2_1)(l2:=n1::inorder t2_2) in H2. inversion H2.
-								inversion H5. apply H6. congruence.
-								destruct t2_1. 
-									apply empty. 
-									simpl. admit. 
-								destruct height1.
-									simpl. admit.
-									destruct height1. 
-										simpl. admit.
-										destruct height1.
-											simpl. admit.
-											destruct height1. 
-											remember (add n t1) as nt1. destruct nt1.
-												apply empty.
-												remember (height nt1_1 + 2 - height nt1_2) as height3. destruct height3.
-													simpl. admit.
-													destruct height3.
-														destruct nt1_2.
-														apply empty.
-														simpl. admit.
-													simpl. admit.
-													simpl. admit.
-													simpl. remember (height t1 + 2 - height (add n t2)) as height4. destruct height4.
-														remember (add n t2) as nt2. destruct nt2.
-															apply empty.
-															remember (height nt2_1 + 2 - height nt2_2) as height5. destruct height5.
-																destruct nt2_1.
-																apply empty.
-																simpl. admit.
-															destruct height5.
-																simpl. admit.
-																destruct nt2_1.
-																	apply empty.
-																	simpl. admit.
-																destruct height4.
-																	simpl. admit.
-																	destruct height4.
-																		simpl. admit.
-																		destruct height4.
-																			simpl. admit.
-																			destruct height4.
-																				destruct t1.
-																					apply empty.
-																					remember (height t1_1 + 2 - height t1_2) as height6. destruct height6.
-																						simpl. admit.
-																						destruct height6.
-																							destruct t1_2.
-																								apply empty.
-																								simpl. admit.
-																							simpl. admit.
-																						simpl. admit.
-				congruence.	
+		Case "t Leaf". simpl. apply single.
+		Case "t Node". simpl in H. apply sorted_app in H. inversion H. inversion H1. unfold insert. simpl in *. remember (ble_nat n n0) as add. 
+		destruct add. 
+			SCase "Add left tree". simpl. remember (height (add n t1) + 2 - height t2) as height1. destruct height1.
+				SSCase "height1 = 0". destruct t2. 
+					SSSCase "t2 Leaf". simpl. apply empty.
+					SSSCase "t2 Node". remember (height t2_1 + 2 - height t2_2) as height2. destruct height2.
+						SSSSCase "height2 = 0". destruct t2_1.
+							SSSSSCase "t2_1 Leaf". apply empty.
+							SSSSSCase "t2_1 Node". simpl. apply app_sorted. 
+								SSSSSSCase "app_sorted 1". simpl in *. destruct t2_1_1.
+									SSSSSSSCase "t2_1_1 Leaf". simpl in *. rewrite last_app. simpl. apply list_property in H2. apply H2. 
+									SSSSSSSCase "t2_1_1 Node". 
+										simpl. rewrite last_app_l. 
+										replace (n0 :: inorder t2_1_1_1 ++ n3 :: inorder t2_1_1_2) 
+											with ((n0 :: inorder t2_1_1_1) ++ n3 :: inorder t2_1_1_2).
+											rewrite last_app_l with (l1:=n0::inorder t2_1_1_1). 
+											apply cons_sorted in H2.
+											apply sorted_app in H2. 
+												inversion H2. subst. apply sorted_app in H4. 
+													inversion H4.
+													apply sorted_last in H6. inversion H7. simpl in H9. rewrite <- H6. apply H9. 
+												congruence.
+											congruence.
+										reflexivity.
+								SSSSSSCase "app_sorted 2". apply app_sorted. 
+									SSSSSSSCase "app_sorted 2_1". simpl. apply last_add. 
+										symmetry in Heqadd. apply ble_nat_true in Heqadd. assumption. assumption.
+									SSSSSSSCase "app_sorted 2_2". apply add_preserves_bst'. assumption.
+									SSSSSSSCase "app_sorted 2_3". simpl in H2. 
+										replace (n0 :: (inorder t2_1_1 ++ n2 :: inorder t2_1_2) ++ n1 :: inorder t2_2) 
+											with (n0 :: inorder t2_1_1 ++ n2 :: inorder t2_1_2 ++ n1 :: inorder t2_2) in H2.
+										apply sorted_app with (l1:=n0::inorder t2_1_1) in H2. 
+											inversion H2. apply H4. 
+										congruence. 
+									rewrite <- app_assoc. reflexivity. 
+								SSSSSSCase "app_sorted 3". simpl in H2. apply cons_sorted in H2. rewrite <- app_assoc in H2. 
+									apply sorted_app in H2.
+										inversion H2.
+											inversion H5. apply H6. 
+										simpl. congruence.
+									SSSSCase "height2 = S n". destruct height2.
+										SSSSSCase "height2' = 0". simpl. apply app_sorted. 
+											SSSSSSCase "app_sorted 1". 
+												simpl. rewrite last_app_l. simpl in H2. apply sorted_app with (l1:=n0::inorder t2_1) in H2. 
+													inversion H2. inversion H5. apply H7. congruence. 
+											SSSSSSCase "app_sorted 2". simpl in H2. apply sorted_app with (l1:=n0::inorder t2_1) in H2. 
+												inversion H2. apply app_sorted. 
+													SSSSSSSCase "app_sorted 2_1". simpl. apply last_add. symmetry in Heqadd. 
+														apply ble_nat_true in Heqadd. assumption. assumption.
+													SSSSSSSCase "app_sorted 2_2". apply add_preserves_bst'. assumption. 
+													SSSSSSSCase "app_sorted 2_3". assumption.
+													congruence.
+											SSSSSSCase "app_sorted 3". simpl in H2. 
+												apply sorted_app with (l1:=n0::inorder t2_1)(l2:=n1::inorder t2_2) in H2. 
+													inversion H2.
+													inversion H5. apply H6. congruence.
+										SSSSSCase "height2' = S n'". destruct t2_1. 
+											SSSSSSCase "t2_1 Leaf". apply empty. 
+											SSSSSSCase "t2_1 Node".	simpl. apply app_sorted. 
+												SSSSSSSCase "app_sorted 1". simpl. rewrite last_app_l.
+													simpl in H2. rewrite <- app_assoc in H2. apply sorted_app with (l1:=n0::inorder t2_1_1) in H2.
+													inversion H2. inversion H5. apply H7. simpl. congruence.
+												SSSSSSSCase "app_sorted 2". apply app_sorted.
+													simpl. apply last_add. symmetry in Heqadd. apply ble_nat_true in Heqadd. omega. assumption.
+													apply add_preserves_bst'. assumption. simpl in H2. rewrite <- app_assoc in H2. 
+													apply sorted_app with (l1:=n0::inorder t2_1_1) in H2. inversion H2. inversion H5. assumption.
+													simpl. congruence.
+												SSSSSSSCase "app_sorted 3". simpl in H2. rewrite <- app_assoc in H2. 
+													apply sorted_app with (l1:=n0::inorder t2_1_1) in H2. inversion H2. inversion H5. assumption.
+													simpl. congruence.
+										SSCase "height1 = S n". destruct height1.
+												SSSCase "height1' = 0". simpl. apply app_sorted. 
+													SSSSCase "app_sorted 1". simpl. admit.
+													SSSSCase "app_sorted 2". admit.
+													SSSSCase "app_sorted 3". admit.
+												SSSCase "height1' = S n'". destruct height1. 
+													SSSSCase "height1'' = 0". simpl. admit.
+													SSSSCase "height1'' = S n''". destruct height1.
+														SSSSSCase "height1''' = 0". simpl. admit.
+														SSSSSCase "height1''' = S n'''". destruct height1. 
+															SSSSSSCase "height1'''' = 0".
+																remember (add n t1) as nt1. destruct nt1.
+																	SSSSSSSCase "nt1 Leaf". apply empty.
+																	SSSSSSSCase "nt1 Node".
+																		remember (height nt1_1 + 2 - height nt1_2) as height3. 
+																		destruct height3.
+																			(*height3 = 0*)simpl. apply app_sorted. 
+																				(*app_sorted 1*) simpl. admit.
+																				(*app_sorted 2*) admit.
+																				(*app_sorted 3*) admit.
+																			(*height3 = S n*)destruct height3.
+																				(*height3' = 0*)destruct nt1_2.
+																					(*nt1_2 = Leaf*)apply empty.
+																					(*nt1_2 = Node*)simpl. admit.
+																				(*height3' = S n'*)simpl. admit.
+															SSSSSSCase "height1'''' = S n''''".
+																simpl. apply app_sorted. 
+																	SSSSSSSCase "app_sorted 1". simpl. admit.
+																	SSSSSSSCase "app_sorted 2". admit.
+																	SSSSSSSCase "app_sorted 3". admit.
+			SCase "Add right tree".
+				simpl. remember (height t1 + 2 - height (add n t2)) as height4. destruct height4.
+					SSCase "height4 = 0". remember (add n t2) as nt2. destruct nt2.
+						SSSCase "nt2 = Leaf". apply empty.
+						SSSCase "nt2 = Node". 
+							remember (height nt2_1 + 2 - height nt2_2) as height5. destruct height5.
+								SSSSCase "height5 = 0". destruct nt2_1.
+									SSSSSCase "nt2_1 = Leaf". apply empty.
+									SSSSSCase "nt2_1 = Node". simpl. admit.
+								SSSSCase "height5 = S n". destruct height5.
+									SSSSSCase "height5' = 0". simpl. admit.
+									SSSSSCase "height5' = S n'". destruct nt2_1.
+										SSSSSSCase "nt2_1 = Leaf". apply empty.
+										SSSSSSCase "nt2_1 = Node". simpl. admit.
+					SSCase "height4 = S n". destruct height4.
+						SSSCase "height4' = 0". simpl. admit.
+						SSSCase "height4' = S n'". destruct height4.
+							SSSSCase "height4'' = 0". simpl. admit.
+							SSSSCase "height4'' = S n''". destruct height4.
+								SSSSSCase "height4''' = 0". simpl. admit.
+								SSSSSCase "height4''' = S n'''". destruct height4.
+									SSSSSSCase "height4'''' = 0". destruct t1.
+										SSSSSSSCase "t1 = Leaf". apply empty.
+										SSSSSSSCase "t1 = Node". remember (height t1_1 + 2 - height t1_2) as height6. destruct height6.
+											(*height6 = 0*) simpl. admit.
+											(*height6 = S n*)destruct height6.
+												(*height6' = 0*)destruct t1_2.
+													(*t1_2 = Leaf*)apply empty.
+													(*t1_2 = Node*)simpl. admit.
+												(*height6' = S n'*)simpl. admit.
+									SSSSSSCase "height4'''' = S n''''". simpl. admit.
+	congruence.	
 Qed.
 
 Theorem insert_preserves_balance: forall n t t',
