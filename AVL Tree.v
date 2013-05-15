@@ -74,13 +74,13 @@ Fixpoint balance (t : tree) :=
 	| leaf => leaf (*Leaf tree is already balanced*)
 	| node val lChild rChild => 
 		match (height lChild) + 2 - (height rChild) with
-		| 0 => (*-2, unbalanced to the right)
+		| 0 => (*-2, unbalanced to the right*)
 			match rChild with
 			| leaf => leaf (* shouldn't happen with unbalance to the right *)
 			| node rval rlChild rrChild => 
-				match (height rlChild) + 2 - (height rrChild) with
-				| 1 => node rval (node val lChild rlChild) rrChild (* rr *)
-				| _ => 
+				match blt_nat (height rlChild) (height rrChild) with
+				| true => node rval (node val lChild rlChild) rrChild (* rr *)
+				| false => 
 					match rlChild with
 					| leaf => leaf (* shouldn't happen*)
 					| node rlval rllChild rlrChild => 
@@ -88,18 +88,18 @@ Fixpoint balance (t : tree) :=
 					end
 				end
 			end
-		| 4 => (*+2)
+		| 4 => (*+2*)
 			match lChild with
 			| leaf => leaf (* shouldn't happen *)
 			| node lval llChild lrChild => 
-				match (height llChild) + 2 - (height lrChild) with
-				| 1 => 
+				match blt_nat (height llChild) (height lrChild) with
+				| true => 
 					match lrChild with
 					| leaf => leaf (* shouldn't happen *)
 					| node lrval lrlChild lrrChild => 
 						node lrval (node lval llChild lrlChild) (node val lrrChild rChild) (* lr *)
 					end
-				| _ => node lval llChild (node val lrChild rChild) (* ll *)
+				| false => node lval llChild (node val lrChild rChild) (* ll *)
 				end
 			end
 		| _ => (*Rest should be -1, 0 and +1, which are balanced. Check on the rest of the tree.*)
@@ -109,14 +109,6 @@ Fixpoint balance (t : tree) :=
 
 Definition insert val t :=
 	balance (add val t).
-
-Example insert_test :
-	insert 25 (insert 20 (insert 15 (insert 10 (insert 5 leaf)))) = node 10 (node 5 leaf leaf) (node 15 leaf (node 20 leaf leaf)).
-	(*node 15 (node 10 (node 5 leaf leaf) leaf) (node 20 leaf (node 25 leaf leaf)).*)
-	(*node 20 (node 10 (node 5 leaf leaf) (node 15 leaf leaf)) (node 25 leaf leaf).*)
-Proof.
-	compute. reflexivity.
-Qed.
 
 Fixpoint search (searchFor : nat) (t : tree) :=
 	match t with
@@ -452,7 +444,27 @@ Proof.
 				apply IHt2. apply cons_sorted in H2. apply H2. congruence. 
 Qed.
 
-Lemma balance_inorder : forall t,
+Lemma blt_nat_false : forall n m,
+	blt_nat n m = false -> ~n < m.
+Proof.
+	intros. induction n. 
+		destruct m. omega. inversion H. 
+		unfold not, blt_nat in *. apply negb_false_iff in H. intros. apply IHn. apply negb_false_iff. admit. omega.
+Qed.
+
+Lemma blt_nat_true : forall n m,
+	blt_nat n m = true -> n < m.
+Proof.
+	intros. induction n. 
+		destruct m. 
+			inversion H.
+			omega. 
+		induction m. 
+			inversion H. 
+			unfold blt_nat in *. simpl in *. apply negb_true_iff in H. admit.
+Qed.
+
+Theorem balance_inorder : forall t,
 	inorder t = inorder (balance t).
 Proof.
 	intros. induction t. 
@@ -462,24 +474,12 @@ Proof.
 				SSCase "t2 = Leaf". destruct t1. 
 					SSSCase "t1 = Leaf". inversion Heqheight1. 
 					SSSCase "t1 = Node". inversion Heqheight1.
-				SSCase "t2 = Node". remember (height t2_1 + 2 - height t2_2) as height2. destruct height2.
-					SSSCase "height2 = 0". destruct t2_1.
-						SSSSCase "t2_1 = Leaf". (* shouldn't happen *)destruct t2_2. 
-							SSSSSCase "t2_2 = Leaf". inversion Heqheight2. 
-							SSSSSCase "t2_2 = Node". simpl in Heqheight2. remember (max (height t2_2_1) (height t2_2_2)). destruct n2. 
-								inversion Heqheight2. 
-								simpl. admit.
+				SSCase "t2 = Node". remember (blt_nat (height t2_1) (height t2_2)) as height2. destruct height2.
+					SSSCase "height2 = true". simpl. repeat rewrite <- app_assoc. simpl. reflexivity. 
+					SSSCase "height2 = false". destruct t2_1.
+						SSSSCase "t2_1 = Leaf". simpl in Heqheight2. destruct t2_2. simpl in *. omega. simpl in Heqheight2. 
+							symmetry in Heqheight2. apply blt_nat_false in Heqheight2. omega.
 						SSSSCase "t2_1 = Node". simpl. repeat rewrite <- app_assoc. reflexivity.
-					SSSCase "height2 = S n". destruct height2.
-						SSSSCase "height2' = 0". simpl. repeat rewrite <- app_assoc. reflexivity.
-						SSSSCase "height2' = S n'". destruct t2_1.
-							SSSSSCase "t2_1 = Leaf". (* shouldn't happen *)simpl. simpl in Heqheight1, Heqheight2. remember (height t2_2). 
-								destruct n1. 
-									destruct height2. omega. omega.
-									destruct height2. 
-										destruct n1. omega. omega. 
-										destruct n1. omega. omega. 
-							SSSSSCase "t2_1 = Node". simpl. repeat rewrite <- app_assoc. reflexivity.
 			SCase "height1 = S n". destruct height1.
 				SSCase "height1' = 0". simpl. rewrite IHt1. rewrite IHt2. reflexivity.
 				SSCase "height1' = S n'". destruct height1.
@@ -490,13 +490,12 @@ Proof.
 							SSSSSCase "height1'''' = 0". destruct t1.
 								SSSSSSCase "t1 = Leaf". simpl in Heqheight1. remember (height t2). 
 									destruct n0. inversion Heqheight1. destruct n0. inversion Heqheight1. inversion Heqheight1. 
-								SSSSSSCase "t1 = Node". remember (height t1_1 + 2 - height t1_2) as height3. destruct height3.
-									SSSSSSSCase "height3 = 0". simpl. rewrite <- app_assoc. reflexivity.
-									SSSSSSSCase "height3 = S n". destruct height3.
-										(*height3' = 0*) destruct t1_2.
-											(*t1_2 = Leaf*) simpl in Heqheight3. omega. 
-											(*t1_2 = Node*) simpl. repeat rewrite <- app_assoc. simpl. rewrite <- app_assoc. reflexivity.
-										(*height3' = S n'*) simpl. repeat rewrite <- app_assoc. simpl. reflexivity.
+								SSSSSSCase "t1 = Node". remember (blt_nat (height t1_1) (height t1_2)) as height3. destruct height3.
+									SSSSSSSCase "height3 = true". destruct t1_2. 
+										(*t1_2 = Leaf*) simpl in Heqheight3. symmetry in Heqheight3. 
+											apply blt_nat_true in Heqheight3. inversion Heqheight3.
+										(*t1_2 = Node*) simpl. repeat rewrite <- app_assoc. simpl. rewrite <- app_assoc. reflexivity.
+									SSSSSSSCase "height3 = false". simpl. rewrite <- app_assoc. reflexivity.
 							SSSSSCase "height1'''' = S n''''". simpl. rewrite IHt1, IHt2. reflexivity.
 Qed.
 
