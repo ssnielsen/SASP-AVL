@@ -444,24 +444,35 @@ Proof.
 				apply IHt2. apply cons_sorted in H2. apply H2. congruence. 
 Qed.
 
-Lemma blt_nat_false : forall n m,
-	blt_nat n m = false -> ~n < m.
+Lemma not_lt_S : forall n m,
+	(~ n < m) -> (~ S n < S m).
 Proof.
-	intros. induction n. 
-		destruct m. omega. inversion H. 
-		unfold not, blt_nat in *. apply negb_false_iff in H. intros. apply IHn. apply negb_false_iff. admit. omega.
+	intros. unfold not in *. intros. apply H. omega.
+Qed.
+
+Lemma blt_nat_false : forall n m,
+	blt_nat n m = false -> ~(n < m).
+Proof. 
+	induction n. 
+		intros. destruct m. 
+			omega. 
+			inversion H. 
+		intros. destruct m.
+			omega. 
+			apply not_lt_S. apply IHn. replace (blt_nat n m = false) with (blt_nat (S n) (S m) = false). apply H.
+				unfold blt_nat. simpl. reflexivity.
 Qed.
 
 Lemma blt_nat_true : forall n m,
 	blt_nat n m = true -> n < m.
 Proof.
-	intros. induction n. 
-		destruct m. 
-			inversion H.
-			omega. 
-		induction m. 
-			inversion H. 
-			unfold blt_nat in *. simpl in *. apply negb_true_iff in H. admit.
+	induction n.
+		destruct m.
+			intros. unfold blt_nat in H. simpl in H. inversion H.
+			intros. omega.
+		destruct m.
+			intros. unfold blt_nat in H. simpl in H. inversion H.
+			intros. apply lt_n_S. apply IHn. unfold blt_nat in *. apply negb_true_iff. apply negb_true_iff in H. simpl in H. assumption.
 Qed.
 
 Theorem balance_inorder : forall t,
