@@ -162,12 +162,6 @@ Proof.
 	subst. apply s_cons. apply H. apply s_cons. apply H0. apply H1.
 Qed.
 
-Lemma first_is_first : forall (m: nat) a xs xs',
-	m::xs = a::xs' -> m = a.
-Proof.
-	intros. inversion H. reflexivity.
-Qed.
-
 Lemma app_sorted : forall l1 l2,
 	last l1 <= first l2 -> sorted l1 -> sorted l2 -> sorted(l1++l2).
 Proof. 
