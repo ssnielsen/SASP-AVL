@@ -1,5 +1,4 @@
 Require Export SfLib.
-Require Import Coq.Numbers.Natural.Peano.NPeano.
 
 Definition blt_nat n1 n2 :=
 	negb (ble_nat n2 n1).
@@ -50,8 +49,8 @@ Fixpoint last l :=
 
 Inductive tree: Type :=
 	| leaf : tree
-	| node : nat -> tree -> tree -> tree.
-	        (* Value -> Left -> Right *)
+	| node : nat -> nat -> tree -> tree -> tree.
+	        (* Value -> height -> Left -> Right *)
 
 Inductive sorted : list nat -> Prop :=
 	| s_nil : sorted []
@@ -66,57 +65,76 @@ Fixpoint max n m {struct n} : nat :=
     | S n', S m' => S (max n' m')
   end.
 
-Fixpoint height (t: tree) :=
-	match t with
-	| leaf => 0
-	| node _ leftChild rightChild => 1 + max (height leftChild) (height rightChild)
-	end.
+(* O(1) *)
+Fixpoint height t :=
+  match t with
+  | leaf => 0
+  | node _ h _ _ => h
+  end.
 
-Fixpoint add (val:nat) (t: tree) := 
-	match t with
-	| leaf => node val leaf leaf
-	| node treeval lChild rChild => 
-		match ble_nat val treeval with
-		| true => node treeval (add val lChild) rChild
-		| false => node treeval lChild (add val rChild)
-		end
-	end.
+Fixpoint height_calc t :=
+  match t with
+  | leaf => 0
+  | node _ _ LC RC => 1 + max (height_calc LC) (height_calc RC)
+  end.
+
+(* O(1), but requires sub-tree height to be valid (add should ensure this) *)
+Fixpoint updateHeight t :=
+  match t with
+  | leaf => leaf
+  | node val _ LC RC => node val (1 + max (height LC) (height RC)) LC RC
+  end.
+
+(* O(log n) for avl, O(n) for bst *)
+Fixpoint add v t :=
+  match t with
+  | leaf => node v 1 leaf leaf
+  | node val _ LC RC => 
+    match ble_nat v val with
+    | true => match (updateHeight (add v LC)) with
+       | addLC => node val (1 + max (height addLC) (height RC)) addLC RC
+       end
+    | false => match (updateHeight (add v RC)) with
+      | addRC => node val (1 + max (height LC) (height addRC)) LC addRC
+      end
+    end
+  end.
 
 Fixpoint balance (t : tree) :=
 	match t with
 	| leaf => leaf (*Leaf tree is already balanced*)
-	| node val lChild rChild => 
+	| node val h lChild rChild => 
 		match (height lChild) + 2 - (height rChild) with
 		| 0 => (*-2, unbalanced to the right*)
 			match rChild with
 			| leaf => leaf (* shouldn't happen with unbalance to the right *)
-			| node rval rlChild rrChild => 
+			| node rval rh rlChild rrChild => 
 				match blt_nat (height rlChild) (height rrChild) with
-				| true => node rval (node val lChild rlChild) rrChild (* rr *)
+				| true => node rval rh (node val (h-2) lChild rlChild) rrChild (* rr *)
 				| false => 
 					match rlChild with
 					| leaf => leaf (* shouldn't happen*)
-					| node rlval rllChild rlrChild => 
-						node rlval (node val lChild rllChild) (node rval rlrChild rrChild) (* rl *)
+					| node rlval rlh rllChild rlrChild => 
+						node rlval (rlh+1) (node val (h-2) lChild rllChild) (node rval (rh-1) rlrChild rrChild) (* rl *)
 					end
 				end
 			end
 		| 4 => (*+2*)
 			match lChild with
 			| leaf => leaf (* shouldn't happen *)
-			| node lval llChild lrChild => 
+			| node lval lh llChild lrChild => 
 				match blt_nat (height llChild) (height lrChild) with
 				| true => 
 					match lrChild with
 					| leaf => leaf (* shouldn't happen *)
-					| node lrval lrlChild lrrChild => 
-						node lrval (node lval llChild lrlChild) (node val lrrChild rChild) (* lr *)
+					| node lrval lrh lrlChild lrrChild => 
+						node lrval (lrh+1) (node lval (lh-1) llChild lrlChild) (node val (h-2) lrrChild rChild) (* lr *)
 					end
-				| false => node lval llChild (node val lrChild rChild) (* ll *)
+				| false => node lval lh llChild (node val (h-2) lrChild rChild) (* ll *)
 				end
 			end
 		| _ => (*Rest should be -1, 0 and +1, which are balanced. Check on the rest of the tree.*)
-			node val (balance lChild) (balance rChild)
+			node val h (balance lChild) (balance rChild)
 		end
 	end.
 
@@ -127,7 +145,7 @@ Definition insert val t :=
 Fixpoint inorder (t: tree) :=
 	match t with
 	| leaf => []
-	| node val leftChild rightChild => (inorder leftChild)++val::(inorder rightChild)
+	| node val _ leftChild rightChild => (inorder leftChild)++val::(inorder rightChild)
 	end.
 
 
@@ -279,7 +297,7 @@ Lemma last_lt : forall t e n,
 Proof.
 	intros. induction t.
 		simpl. omega.
-		remember (inorder (node n0 t1 t2)) as list. destruct list.
+		remember (inorder (node n0 n1 t1 t2)) as list. destruct list.
 			simpl. omega.
 			rewrite last_cons in H. apply H. unfold not. intros. inversion H0.
 Qed.
@@ -290,45 +308,17 @@ Proof.
 	intros. induction t. 
 		simpl. unfold not. intros. inversion H.
 		simpl. remember (ble_nat n n0). destruct b. 
-			simpl. unfold not. intros. remember (inorder (add n t1)). destruct l. inversion H. inversion H. 
+			simpl. unfold not. intros. remember (inorder (updateHeight (add n t1))). destruct l. inversion H. inversion H. 
 			simpl. unfold not. intros. remember (inorder t1). destruct l. inversion H. inversion H.
 Qed.
 
-Lemma add_le : forall n m t,
-	true = ble_nat n m -> last (inorder t) <= m -> last (inorder (add n t)) <= m.
-Proof.
-	intros. induction t. 
-		simpl. symmetry in H. apply ble_nat_true in H. apply H. 
-		simpl. remember (ble_nat n n0) as add. destruct add.
-			simpl in *. rewrite last_app in *; try apply H0; congruence.
-			simpl in *. rewrite last_app in *; try rewrite last_cons; 
-			try apply IHt2; try apply last_lt in H0; try assumption; try congruence. apply inorder_add_nonempty. 
-Qed.
-
-Lemma sorted_last: forall val leftChild rightChild,
-	sorted (inorder (node val leftChild rightChild)) -> last (inorder leftChild ++ val::inorder rightChild) = last (val::inorder rightChild).
+Lemma sorted_last: forall val h leftChild rightChild,
+	sorted (inorder (node val h leftChild rightChild)) -> last (inorder leftChild ++ val::inorder rightChild) = last (val::inorder rightChild).
 Proof.
 	intros. inversion H. remember (inorder leftChild). destruct l. inversion H1. inversion H1.
 	remember (inorder leftChild). destruct l. inversion H1. reflexivity. inversion H1. destruct l. inversion H3. inversion H3.
 	remember (inorder leftChild). destruct l. rewrite H0. simpl. reflexivity. remember (inorder rightChild). destruct l0. rewrite H0. 
 	rewrite last_app. reflexivity. congruence. rewrite H0. rewrite last_app. reflexivity. congruence.
-Qed.
-
-Lemma inorder_add_property : forall n m t,
-	sorted (n::inorder t) -> m > n -> n <= first (inorder (add m t)).
-Proof.
-	intros. induction t.
-		simpl. omega.
-		simpl. remember (ble_nat m n0). destruct b.
-			simpl. rewrite first_app.  apply IHt1. simpl in H. apply sorted_app with (l1:=n::inorder t1) in H. inversion H. apply H1. 
-			congruence. apply inorder_add_nonempty.
-			destruct t1.
-				simpl in *. apply s_cons_rev in H. apply H. 
-				simpl in *. rewrite first_app. apply sorted_app with (l1:=n::(inorder t1_1 ++ n1::inorder t1_2)) in H. inversion H.
-				remember (inorder t1_1). destruct l. simpl in *. 
-				apply s_cons_rev in H1. assumption.
-				simpl in *. apply s_cons_rev in H1. assumption.
-				congruence. destruct (inorder t1_1). simpl. congruence. simpl. congruence.
 Qed.
 
 Lemma last_cons_le : forall n m l,
@@ -339,25 +329,40 @@ Proof.
 		simpl in *. apply H. 
 Qed.
 
-Lemma last_inorder : forall n m x t,
-	 last (inorder (add n t)) <= m -> last (x :: inorder t) <= m -> last (x :: inorder (add n t)) <= m.
+Lemma update_preserves_structure : forall t,
+	inorder t = inorder (updateHeight t).
 Proof.
-	intros. induction t.
-		simpl in *. apply H. 
-		simpl in *. remember (ble_nat n n0). destruct b; 
-			simpl in *; rewrite obvious_match in *; rewrite last_app in *; try assumption; congruence.
+	intros. induction t; simpl; reflexivity.
 Qed.
 
-Lemma last_add : forall n m t,
+Lemma add_le : forall n m t,
 	n <= m -> last (inorder t) <= m -> last (inorder (add n t)) <= m.
 Proof.
-	intros. induction t.
-		assumption.
-		simpl. remember (ble_nat n n0). destruct b.
-			simpl in *. rewrite last_app in *; try assumption; congruence.
-			simpl in *. rewrite last_app in *. apply last_inorder. apply IHt2. apply last_cons_le in H0. assumption. assumption. 
-			congruence. congruence. congruence.
+	intros. induction t. 
+		simpl. apply H. 
+		simpl. remember (ble_nat n n0) as add. destruct add.
+			simpl in *. rewrite <- update_preserves_structure. rewrite last_app in *; try apply H0; congruence.
+			simpl in *. rewrite <- update_preserves_structure. rewrite last_app in *; try rewrite last_cons; 
+			try apply IHt2; try apply last_lt in H0; try assumption; try congruence. apply inorder_add_nonempty. 
 Qed.
+
+Lemma inorder_add_property : forall n m t,
+	sorted (n::inorder t) -> m > n -> n <= first (inorder (add m t)).
+Proof.
+	intros. induction t.
+		simpl. omega.
+		simpl. remember (ble_nat m n0). destruct b.
+			simpl. rewrite <- update_preserves_structure. rewrite first_app.  apply IHt1. simpl in H. apply sorted_app with (l1:=n::inorder t1) in H. 
+				inversion H. apply H1. 
+			congruence. apply inorder_add_nonempty.
+			simpl. destruct t1.
+				simpl in *. apply s_cons_rev in H. apply H. 
+				simpl in *. rewrite first_app. apply sorted_app with (l1:=n::(inorder t1_1 ++ n2::inorder t1_2))(l2:=n0::inorder t2) in H. inversion H.
+				remember (inorder t1_1). destruct l. simpl in *. 
+				apply s_cons_rev in H1. assumption.
+				simpl in *. apply s_cons_rev in H1. assumption.
+				congruence. destruct (inorder t1_1). simpl. congruence. simpl. congruence.
+Qed. 
 
 Theorem add_preserves_bst: forall n t,
 	sorted (inorder t) -> sorted (inorder (add n t)).
@@ -366,10 +371,19 @@ Proof.
 		Case "leaf". simpl. apply s_single.
 		Case "node". simpl in H. apply sorted_app in H. inversion H. inversion H1. simpl. 
 			remember (ble_nat n n0) as add. destruct add. 
-				simpl. apply app_sorted; simpl; try apply add_le; try assumption. apply IHt1. assumption. 
-				simpl. apply app_sorted. simpl in *. apply H3. assumption. 
+				simpl. rewrite <- update_preserves_structure. apply app_sorted. simpl in *. apply add_le. symmetry in Heqadd. apply ble_nat_true in Heqadd.
+					assumption. assumption. apply IHt1. assumption. assumption.
+				simpl. rewrite <- update_preserves_structure. apply app_sorted. simpl in *. apply H3. assumption. 
 				apply sorted_cons. apply inorder_add_property. apply H2. symmetry in Heqadd. apply ble_nat_false in Heqadd. omega. 
 				apply IHt2. apply cons_sorted in H2. apply H2. congruence. 
+Qed.
+
+Lemma height_heightcalc : forall t,
+	height t = height_calc t. (* Definately not true for all random trees, but should be the case for trees only generated by add... *)
+Proof.
+	intros. induction t. 
+		reflexivity.
+		simpl. admit.
 Qed.
 
 Theorem balance_inorder : forall t,
@@ -379,19 +393,17 @@ Proof.
 		Case "t = Leaf". reflexivity. 
 		Case "t = Node". simpl. remember (height t1 + 2 - height t2) as height1. destruct height1.
 			SCase "height1 = 0". destruct t2.
-				SSCase "t2 = Leaf". destruct t1. 
-					SSSCase "t1 = Leaf". inversion Heqheight1. 
-					SSSCase "t1 = Node". inversion Heqheight1.
+				SSCase "t2 = Leaf". destruct (height t1); inversion Heqheight1. 
 				SSCase "t2 = Node". remember (blt_nat (height t2_1) (height t2_2)) as height2. destruct height2.
 					SSSCase "height2 = true". simpl. repeat rewrite <- app_assoc. simpl. reflexivity. 
 					SSSCase "height2 = false". destruct t2_1.
-						SSSSCase "t2_1 = Leaf". simpl in Heqheight2. destruct t2_2. simpl in *. 
-							remember (height t1). destruct n1. inversion Heqheight1. destruct n1; inversion Heqheight1.
-							simpl in Heqheight2. 
-							symmetry in Heqheight2. apply blt_nat_false in Heqheight2. 
-							remember (max (height t2_2_1) (height t2_2_2)). destruct n2. 
-								unfold not in Heqheight2. apply ex_falso_quodlibet. apply Heqheight2. omega. 
-								unfold not in Heqheight2. apply ex_falso_quodlibet. apply Heqheight2. omega. 
+						SSSSCase "t2_1 = Leaf". destruct t2_2. 
+							rewrite height_heightcalc with (t:=node n1 n2 leaf leaf) in Heqheight1. simpl in Heqheight1. omega. 
+							repeat rewrite height_heightcalc in *. simpl in Heqheight1, Heqheight2. 
+								symmetry in Heqheight2. apply blt_nat_false in Heqheight2. 
+								remember (max (height_calc t2_2_1) (height_calc t2_2_2)). destruct n5.
+									unfold not in Heqheight2. apply ex_falso_quodlibet. apply Heqheight2. omega. 
+									unfold not in Heqheight2. apply ex_falso_quodlibet. apply Heqheight2. omega. 
 						SSSSCase "t2_1 = Node". simpl. repeat rewrite <- app_assoc. reflexivity.
 			SCase "height1 = S n". destruct height1.
 				SSCase "height1' = 0". simpl. rewrite IHt1. rewrite IHt2. reflexivity.
@@ -399,10 +411,10 @@ Proof.
 					SSSCase "height1'' = 0". simpl. rewrite IHt1. rewrite IHt2. reflexivity.
 					SSSCase "height1'' = S n''". destruct height1.
 						SSSSCase "height1''' = 0". simpl. rewrite IHt1, IHt2. reflexivity.
-						SSSSCase "height1''' = S n'''". simpl. destruct height1.
+						SSSSCase "height1''' = S n'''". destruct height1.
 							SSSSSCase "height1'''' = 0". destruct t1.
 								SSSSSSCase "t1 = Leaf". simpl in Heqheight1. remember (height t2). 
-									destruct n0. inversion Heqheight1. destruct n0. inversion Heqheight1. inversion Heqheight1. 
+									destruct n1. inversion Heqheight1. destruct n1. inversion Heqheight1. inversion Heqheight1. 
 								SSSSSSCase "t1 = Node". remember (blt_nat (height t1_1) (height t1_2)) as height3. destruct height3.
 									SSSSSSSCase "height3 = true". destruct t1_2. 
 										(*t1_2 = Leaf*) simpl in Heqheight3. symmetry in Heqheight3. 
